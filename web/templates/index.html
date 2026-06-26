@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InsureGuard AI — Claim Review</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-container">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">InsureGuard</div>
+        <div class="sidebar-tagline">Motor Claims Intelligence</div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-label">System</div>
+            <div class="sidebar-row"><span>Agents active</span><strong>6</strong></div>
+            <div class="sidebar-row"><span>AI tasks</span><strong>4 (Gemini)</strong></div>
+            <div class="sidebar-row"><span>Claims on record</span><strong>200</strong></div>
+            <div class="sidebar-row"><span>Approved workshops</span><strong>40</strong></div>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-label">Scoring Bands</div>
+            <div class="band-row"><span class="band-range">0 – 40</span><span class="band-label band-approve">Approve</span></div>
+            <div class="band-row"><span class="band-range">41 – 65</span><span class="band-label band-review">Review</span></div>
+            <div class="band-row"><span class="band-range">66 – 85</span><span class="band-label band-investigate">Investigate</span></div>
+            <div class="band-row"><span class="band-range">86 – 100</span><span class="band-label band-reject">Reject</span></div>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-label">Deterministic Pipeline</div>
+            <div class="pipeline-item"><span class="pipeline-num">01</span>History Lookup</div>
+            <div class="pipeline-item"><span class="pipeline-num">02</span>Workshop Validator</div>
+            <div class="pipeline-item"><span class="pipeline-num">03</span>Amount Benchmark</div>
+            <div class="pipeline-item"><span class="pipeline-num">04</span>Document Verifier</div>
+            <div class="pipeline-item"><span class="pipeline-num">05</span>Nexus Detector</div>
+            <div class="pipeline-item"><span class="pipeline-num">06</span>Bill Discrepancy</div>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-label">Gemini AI Tasks</div>
+            <div class="pipeline-item"><span class="pipeline-num">G1</span>Document Vision</div>
+            <div class="pipeline-item"><span class="pipeline-num">G2</span>Cross-Reference</div>
+            <div class="pipeline-item"><span class="pipeline-num">G3</span>Web Research</div>
+            <div class="pipeline-item"><span class="pipeline-num">G4</span>AI Summary Report</div>
+        </div>
+
+        <div class="sidebar-footer">
+            InsureGuard AI v4.0<br>
+            Capstone — Agentic AI for Actuaries<br>
+            Sri Sathya Sai Institute of Actuaries
+        </div>
+    </aside>
+
+    <!-- ── Main Panel ── -->
+    <main class="main-panel">
+        <div class="page-eyebrow">Motor Insurance</div>
+        <h1 class="page-title serif">Claim Review</h1>
+        <p class="page-subtitle">Select a policyholder to autofill details. Upload documents for AI analysis. All six agents plus four Gemini reasoning tasks will run in sequence.</p>
+
+        <!-- Input Card -->
+        <div class="card" id="input-card">
+
+            <!-- Policyholder Search -->
+            <div class="card-section-label">Policyholder Lookup</div>
+            <div class="search-wrap">
+                <div class="form-group">
+                    <label class="form-label" for="policyholder_search">Search by Name or Claim ID</label>
+                    <input class="form-input" type="text" id="policyholder_search"
+                           placeholder="Start typing a name or claim ID..."
+                           autocomplete="off">
+                    <div class="search-dropdown" id="policyholder_dropdown"></div>
+                </div>
+                <div class="validation-msg" id="validation-msg"></div>
+                <!-- Hidden fields populated by autofill -->
+                <input type="hidden" id="claimant_name_hidden">
+                <input type="hidden" id="tax_invoice_hidden">
+                <input type="hidden" id="policy_number">
+                <input type="hidden" id="prior_claims_90d" value="0">
+                <input type="hidden" id="prior_claims_total" value="0">
+                <input type="hidden" id="past_rejected" value="0">
+                <input type="hidden" id="claimant_city">
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Autofilled details (read-only display) -->
+            <div class="card-section-label">Claim &amp; Vehicle Details</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label" for="claim_id">Claim ID</label>
+                    <input class="form-input" type="text" id="claim_id" placeholder="Auto-filled">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="claim_type">Claim Type</label>
+                    <select class="form-select" id="claim_type"><option value="">Select type</option></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="vehicle_name">Vehicle</label>
+                    <input class="form-input" type="text" id="vehicle_name" placeholder="Auto-filled">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="vehicle_age_years">Vehicle Age (Years)</label>
+                    <input class="form-input" type="number" id="vehicle_age_years" placeholder="Auto-filled">
+                </div>
+            </div>
+            <div class="form-grid-3" style="margin-top:12px">
+                <div class="form-group">
+                    <label class="form-label" for="original_purchase_price">Purchase Price (₹)</label>
+                    <input class="form-input" type="number" id="original_purchase_price" placeholder="Auto-filled">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="claim_amount">Claim Amount (₹)</label>
+                    <input class="form-input" type="number" id="claim_amount" placeholder="Auto-filled">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="claimant_phone">Claimant Phone</label>
+                    <input class="form-input" type="text" id="claimant_phone" placeholder="Auto-filled">
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Dates & Reporting -->
+            <div class="card-section-label">Incident &amp; Reporting</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label" for="accident_date">Accident Date</label>
+                    <input class="form-input" type="date" id="accident_date">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="report_date">Report Date</label>
+                    <input class="form-input" type="date" id="report_date">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="police_report_filed">Police Report</label>
+                    <select class="form-select" id="police_report_filed">
+                        <option value="N/A">Not applicable</option>
+                        <option value="Yes">Filed</option>
+                        <option value="No">Not filed</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" style="margin-top:12px">
+                <label class="form-label" for="accident_narrative">Accident Narrative (Claimant's Description)</label>
+                <textarea class="form-textarea" id="accident_narrative"
+                    placeholder="Describe the accident as reported by the claimant. The AI will compare this against document facts and flag inconsistencies."></textarea>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Workshop -->
+            <div class="card-section-label">Workshop &amp; Contacts</div>
+            <div class="form-grid-3">
+                <div class="form-group">
+                    <label class="form-label" for="workshop_name">Workshop Name</label>
+                    <input class="form-input" type="text" id="workshop_name" placeholder="Auto-filled">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="workshop_contact">Workshop Contact</label>
+                    <input class="form-input" type="text" id="workshop_contact" placeholder="Auto-filled">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="surveyor_contact">Surveyor Contact</label>
+                    <input class="form-input" type="text" id="surveyor_contact" placeholder="Auto-filled">
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Document Uploads -->
+            <div class="card-section-label">Document Uploads</div>
+
+            <!-- FIR — shown/hidden based on claim type -->
+            <div id="fir-section" style="display:none; margin-bottom:14px;">
+                <p class="upload-req">COMPULSORY — FIR required for Third Party Liability claims</p>
+                <div class="upload-zone" id="fir-upload-zone">
+                    <input type="file" id="fir_file_input" accept=".pdf,.png,.jpg,.jpeg">
+                    <div class="upload-label">
+                        <strong>Click to upload FIR</strong> or drag and drop here<br>
+                        <span style="font-size:0.7rem;color:var(--ink-dim)">PDF, PNG, JPG — max 16 MB</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workshop invoice — optional -->
+            <div style="margin-bottom:14px">
+                <p style="font-size:0.73rem;color:var(--ink-dim);margin-bottom:8px">
+                    Workshop Invoice — optional. Gemini will extract all line items and cross-check against claim amount.
+                </p>
+                <div class="upload-zone" id="invoice-upload-zone">
+                    <input type="file" id="invoice_file_input" accept=".pdf,.png,.jpg,.jpeg">
+                    <div class="upload-label">
+                        <strong>Click to upload Workshop Invoice</strong> or drag and drop<br>
+                        <span style="font-size:0.7rem;color:var(--ink-dim)">PDF, PNG, JPG — max 16 MB</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bill Discrepancy -->
+            <div class="divider"></div>
+            <div class="card-section-label">Bill Discrepancy Check</div>
+            <p style="font-size:0.75rem;color:var(--ink-dim);margin-bottom:12px">
+                Enter the workshop's estimation bill. Agent 6 compares this against the tax invoice on record. Variance above 50% halts processing.
+            </p>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label" for="estimation_bill">Estimation Bill (₹)</label>
+                    <input class="form-input" type="number" id="estimation_bill" placeholder="Workshop quoted amount">
+                </div>
+            </div>
+            <div id="invoice-box" class="invoice-box"></div>
+
+            <!-- Buttons -->
+            <div class="btn-row">
+                <button class="btn btn-primary" id="btn-run" onclick="runAnalysis()">Run Analysis</button>
+                <button class="btn btn-outline" id="btn-clear" onclick="clearForm()">Clear</button>
+            </div>
+
+            <!-- Progress bar -->
+            <div class="progress-wrap" id="progress-wrap">
+                <div class="progress-text" id="progress-text">Initialising...</div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="results-section" id="results-section">
+
+            <!-- Score Panel -->
+            <div class="score-panel">
+                <div class="score-number-wrap">
+                    <div class="score-number" id="score-number">0</div>
+                    <div class="score-cap">out of 100</div>
+                </div>
+                <div class="score-detail">
+                    <div class="score-meter-track">
+                        <div class="score-meter-fill" id="score-meter-fill"></div>
+                    </div>
+                    <div class="score-bands-row">
+                        <div class="score-band-pip pip-approve"     id="pip-approve">0 – 40</div>
+                        <div class="score-band-pip pip-review"      id="pip-review">41 – 65</div>
+                        <div class="score-band-pip pip-investigate" id="pip-investigate">66 – 85</div>
+                        <div class="score-band-pip pip-reject"      id="pip-reject">86 – 100</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Halt banner -->
+            <div class="halt-banner" id="halt-banner">
+                <div class="halt-title">Claim Processing Halted</div>
+                <div class="halt-text">Estimation bill significantly exceeds tax invoice. Held for Review — senior officer approval required.</div>
+            </div>
+
+            <!-- Deterministic Agent Cards -->
+            <p class="results-header" style="margin-top:16px">Deterministic Agents</p>
+            <div class="agent-grid" id="agent-grid"></div>
+
+            <!-- Verdict -->
+            <div id="verdict-wrap"></div>
+
+            <!-- AI Task Progress -->
+            <p class="results-header" style="margin-top:20px">Gemini AI Analysis</p>
+            <div id="ai-task-list"></div>
+
+            <!-- Cross-ref findings -->
+            <div id="crossref-wrap"></div>
+
+            <!-- AI Summary Report -->
+            <div id="ai-summary-wrap"></div>
+
+        </div>
+    </main>
+</div>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
