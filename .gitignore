@@ -1,3 +1,4 @@
 .env
 __pycache__/
 *.pyc
+!abc_motor_claims_25col_100rows.xlsx

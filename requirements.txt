@@ -3,7 +3,10 @@ flask>=3.0.0
 python-dotenv>=1.0.0
 pandas>=2.0.0
 openpyxl>=3.1.0
-
+google-genai
+google-generativeai
+lightgbm[scikit-learn]
+gunicorn>=21.2.0
 # Gemini is called via urllib (stdlib) — no extra library needed
 # Install this for convenience if preferred:
 # google-generativeai>=0.5.0

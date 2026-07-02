@@ -2,6 +2,7 @@
 Orchestrator — runs all 6 deterministic agents, then 4 Gemini AI tasks.
 Yields SSE events for real-time streaming to the frontend.
 """
+from core.ml_model import predict_fraud
 import os
 from core.scorer import FraudScorer
 from agents import (history_agent, workshop_agent, benchmark_agent,
@@ -9,10 +10,8 @@ from agents import (history_agent, workshop_agent, benchmark_agent,
 from core.gemini_agent import (
     analyze_document,
     cross_reference_check,
-    web_research_agent,
     generate_ai_summary,
 )
-
 
 AGENTS = [
     ("History Lookup",    history_agent),
@@ -132,44 +131,58 @@ def assess_claim(claim: dict, uploaded_files: dict | None = None):
     }
     cross_ref = cross_reference_check(claim, doc_extractions, agent_summary["agent_scores"], historical)
 
+    # 1. Setup safe defaults
+    final_status = "complete"
+    final_message = "Cross-reference analysis generated successfully."
+    final_inconsistencies = []
+    final_consistent = []
+    final_notes = ""
+
+        # 2. Bulletproof Type-Checking
+    if isinstance(cross_ref, dict):
+        if cross_ref.get("error"):
+                final_status = "error"
+                final_message = cross_ref.get("error")
+        else:
+                final_inconsistencies = cross_ref.get("inconsistencies", [])
+                final_consistent = cross_ref.get("consistent_points", [])
+                final_notes = cross_ref.get("investigator_notes", "")
+                
+    elif isinstance(cross_ref, str):
+            # If the AI returns plain text, safely assign it to inconsistencies so the UI can display it
+            final_inconsistencies = [cross_ref]
+            final_notes = cross_ref
+            
+    else:
+            final_inconsistencies = [str(cross_ref)]
+
+        # 3. Safely yield the exact dictionary structure your app expects
+    yield {
+            "type":    "ai_task",
+            "task":    "Cross-Reference Check",
+            "status":  final_status,
+            "message": final_message,
+            "data":    {
+                "inconsistencies":    final_inconsistencies,
+                "consistent_points":  final_consistent,
+                "investigator_notes": final_notes,
+            },
+        }
+
+      # ── ML Prediction ──────────────────────────────────────────────────────
+    ml_result = predict_fraud(claim)
     yield {
         "type":    "ai_task",
-        "task":    "Cross-Reference Check",
-        "status":  "error" if cross_ref.get("error") else "complete",
-        "message": cross_ref.get("error") or f"Found {len(cross_ref.get('inconsistencies',[]))} inconsistency/ies.",
-        "data":    {
-            "inconsistencies":   cross_ref.get("inconsistencies", []),
-            "consistent_points": cross_ref.get("consistent_points", []),
-            "investigator_notes": cross_ref.get("investigator_notes", ""),
-        },
+        "task":    "ML Fraud Prediction",
+        "status":  "complete",
+        "message": f"LightGBM confidence: {ml_result['ml_probability']*100:.1f}%",
+        "data":    ml_result,
     }
 
-    # ── Phase 4: Web Research ───────────────────────────────────────────────
-    yield {"type": "ai_task", "task": "Web Research", "status": "running",
-           "message": "Searching web for accident corroboration...", "data": {}}
-
-    web_res = web_research_agent(
-        accident_location=claim.get("accident_location", claim.get("claimant_city", "Unknown")),
-        accident_date=claim.get("accident_date", "Unknown"),
-        claim_type=claim_type,
-        vehicle=claim.get("vehicle_name", claim.get("vehicle", "Unknown")),
-    )
-
-    yield {
-        "type":    "ai_task",
-        "task":    "Web Research",
-        "status":  "error" if web_res.get("error") else "complete",
-        "message": web_res.get("error") or f"Corroboration level: {web_res.get('corroboration_level','?')}",
-        "data":    {
-            "corroboration_level": web_res.get("corroboration_level"),
-            "assessment":          web_res.get("gemini_assessment", ""),
-            "queries":             web_res.get("search_queries", []),
-        },
-    }
-
+    
     # ── Phase 5: AI Summary Report ──────────────────────────────────────────
     yield {"type": "ai_task", "task": "AI Summary Report", "status": "running",
-           "message": "Generating AI Summary Report...", "data": {}}
+           "message": "Generating executive AI summary...", "data": {}}
 
     summary = generate_ai_summary(
         claim_data=claim,
@@ -177,19 +190,36 @@ def assess_claim(claim: dict, uploaded_files: dict | None = None):
         verdict=verdict_data["verdict"],
         agent_results=agent_results,
         cross_ref=cross_ref,
-        web_research=web_res,
+        web_research="Web research module disabled.",   # ← web_res removed
         doc_extractions=doc_extractions,
     )
+
+    # Bulletproof type-check — summary can be dict, str, or anything else
+    if isinstance(summary, dict):
+        summary_status  = "error" if summary.get("error") else "complete"
+        summary_message = summary.get("error") or "AI Summary Report generated successfully."
+        summary_payload = summary
+    else:
+        summary_status  = "complete"
+        summary_message = "AI Summary Report generated successfully."
+        summary_payload = {
+            "summary_bullets":    [str(summary)],
+            "overall_assessment": str(summary),
+            "recommended_action": "Review full AI output above.",
+            "confidence":         "Medium",
+            "raw_report":         str(summary),
+            "error":              None,
+        }
 
     yield {
         "type":    "ai_task",
         "task":    "AI Summary Report",
-        "status":  "error" if summary.get("error") else "complete",
-        "message": summary.get("error") or "AI Summary Report generated.",
-        "data":    summary,
+        "status":  summary_status,
+        "message": summary_message,
+        "data":    summary_payload,
     }
 
-    # ── Final verdict ───────────────────────────────────────────────────────
+    # ── Final verdict ────────────────────────────────────────────────────────
     yield {
         "type":            "verdict",
         "total_score":     final_score,
@@ -201,8 +231,8 @@ def assess_claim(claim: dict, uploaded_files: dict | None = None):
         "agent_scores":    agent_summary["agent_scores"],
         "halted":          halted,
         "halt_message":    "Estimation bill halted — Held for Review." if halted else "",
-        "ai_summary":      summary,
+        "ai_summary":      summary_payload,
         "cross_ref":       cross_ref,
-        "web_research":    web_res,
+        "web_research":    "Web research module disabled.",   # ← web_res removed
         "doc_extractions": doc_extractions,
     }
